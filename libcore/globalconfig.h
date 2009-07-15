@@ -26,6 +26,7 @@
 #include <qcolor.h>
 #include <qstringlist.h>
 #include <q3dict.h>
+#include <QString>
 
 #include "tracedata.h"
 
@@ -77,6 +78,8 @@ public:
   // upper limit for cutting of a call in cycle detection
   static double cycleCut();
 
+  static QString externalDemangler();
+
   void addDefaultTypes();
 
 protected:
@@ -102,6 +105,8 @@ protected:
   int _percentPrecision;
   int _maxSymbolLength, _maxSymbolCount, _maxListCount;
   int _context, _noCostInside;
+
+  QString _externalDemangler;
 
   static GlobalConfig* _config;
 };

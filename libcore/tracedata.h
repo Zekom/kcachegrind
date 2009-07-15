@@ -1403,10 +1403,16 @@ class TraceData: public ProfileCostArray
   /**
    * Loads a trace file.
    *
+   * @p base can be:
+   * - a directory: the first profile data file available is loaded
+   * - a file name without part/thread suffixes
+   *
    * This adjusts the EventTypeSet according to given cost types.
-   * Returns the number of parts loaded
+   *
+   * @return 0 if nothing to load was found, -1 if the external demangler could
+   *         not be invoked properly, the number of loaded parts otherwise.
    */
-  int load(const QString&);
+  int load(const QString& base);
 
   /** returns true if something changed. These do NOT
    * invalidate the dynamic costs on a activation change,
@@ -1494,8 +1500,18 @@ class TraceData: public ProfileCostArray
 
  private:
   void init();
+
   // add trace part: events from one trace file
   TracePart* addPart(const QString& dir, const QString& file);
+
+  /**
+   * Invokes the external demangler (if there is one set in the
+   * GlobalConfig).
+   * @return @c true if everything went fine or no demangler has been
+   *         configured,
+   *         @c false if invoking the demangler failed.
+   */
+  bool invokeExternalDemangler();
 
   // for notification callbacks
   Logger* _logger;

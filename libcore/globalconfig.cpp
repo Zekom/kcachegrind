@@ -39,6 +39,7 @@
 #define DEFAULT_MAXLISTCOUNT     100
 #define DEFAULT_CONTEXT          3
 #define DEFAULT_NOCOSTINSIDE     20
+#define DEFAULT_EXTERNAL_DEMANGLER ""
 
 //
 // Some predefined event types...
@@ -119,6 +120,9 @@ GlobalConfig::GlobalConfig()
   // annotation behaviour
   _context          = DEFAULT_CONTEXT;
   _noCostInside     = DEFAULT_NOCOSTINSIDE;
+
+  // External tools
+  _externalDemangler = DEFAULT_EXTERNAL_DEMANGLER;
 }
 
 GlobalConfig* GlobalConfig::config()
@@ -202,6 +206,12 @@ void GlobalConfig::saveOptions()
 			    t->formula(), knownFormula(t->name()) );
     }
     delete etConfig;
+
+    // External tools
+    ConfigGroup* toolsConfig = ConfigStorage::group( "ExternalTools" );
+    toolsConfig->setValue( "Demangler", _externalDemangler,
+        DEFAULT_EXTERNAL_DEMANGLER );
+    delete toolsConfig;
 }
 
 void GlobalConfig::readOptions()
@@ -310,6 +320,12 @@ void GlobalConfig::readOptions()
 	EventType::add(new EventType(n, l, f));
     }
     delete etConfig;
+
+    // External tools
+    ConfigGroup* toolsConfig = ConfigStorage::group( "ExternalTools" );
+    _externalDemangler = toolsConfig->value( "Demangler",
+        DEFAULT_EXTERNAL_DEMANGLER ).toString();
+    delete toolsConfig;
 }
 
 void GlobalConfig::addDefaultTypes()
@@ -516,4 +532,8 @@ int GlobalConfig::context()
 int GlobalConfig::noCostInside()
 {
   return config()->_noCostInside;
+}
+
+QString GlobalConfig::externalDemangler() {
+    return config()->_externalDemangler;
 }

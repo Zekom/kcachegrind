@@ -27,6 +27,8 @@
 #include <QFileInfo>
 #include <QRegExp>
 #include <QDebug>
+#include <QProcess>
+#include <QTemporaryFile>
 
 #include "logger.h"
 #include "loader.h"
@@ -3205,13 +3207,6 @@ DynPool* TraceData::dynPool()
 }
 
 
-/**
- * Two cases:
- * - <base> is a directory: Load first profile data file available
- * - <base> is a file name without part/thread suffixes
- *
- * Returns false of nothing found to load
- */
 int TraceData::load(const QString& base)
 {
   bool baseExisting = true;
@@ -3321,7 +3316,19 @@ int TraceData::load(const QString& base)
     _parts.append(p);
     partsLoaded++;
   }
-  if (partsLoaded == 0) return 0;
+
+  // Everything has been loaded by now.
+
+  // No further actions needed if no files were loaded.
+  if ( partsLoaded == 0 ) {
+      return 0;
+  }
+
+  // Process the function names with the external demangler
+  // (if there is one configured).
+  if ( !invokeExternalDemangler() ) {
+      return -1;
+  }
 
   _parts.sort();
   invalidateDynamicCost();
@@ -3364,6 +3371,77 @@ TracePart* TraceData::addPart(const QString& dir, const QString& name)
   l->setLogger(0);
 
   return part;
+}
+
+bool TraceData::invokeExternalDemangler() {
+    if ( GlobalConfig::externalDemangler().isEmpty() ) {
+        // Nothing to do if no demangler is set.
+        return true;
+    }
+
+    // Open a temporary file and write all the function names to it.
+    QTemporaryFile tempFile;
+
+    if ( !tempFile.open() ) {
+        qWarning() << "Could not open temp file for writing.";
+        return false;
+    }
+
+    QString tempFileName = tempFile.fileName();
+    QTextStream tempStream( &tempFile );
+
+    TraceFunctionMap::const_iterator readIter = _functionMap.constBegin();
+    while ( readIter != _functionMap.constEnd() ) {
+        tempStream << readIter.value().name() << "\n";
+        ++readIter;
+    }
+
+    tempStream.flush();
+    tempFile.close();
+
+    // Invoke the external demangler.
+    // We cannot use QProcess::execute here, since it does not indicate when
+    // the process could not be started because the program does not exist.
+    qDebug() << "Launching external demangler (file: " << tempFileName << ")...";
+    QProcess demanglerProcess;
+    demanglerProcess.start(
+        GlobalConfig::externalDemangler(), QStringList( tempFileName ) );
+    // TODO: Set (and document) time limit?
+    bool finishedSuccessfully = demanglerProcess.waitForFinished( -1 );
+
+    if ( !finishedSuccessfully ||
+        ( demanglerProcess.exitStatus() != QProcess::NormalExit ) ||
+        ( demanglerProcess.exitCode() != 0 ) ) {
+        qWarning() << "Demangler process did not return successfully, aborting.";
+        return false;
+    }
+
+    if ( !tempFile.open() ) {
+        qWarning() << "Could not open temp file for reading back.";
+        return false;
+    }
+
+    // Read the processed function names from the temp file and write them
+    // back into our TraceFunction objects.
+    TraceFunctionMap::iterator writeIter = _functionMap.begin();
+    while ( writeIter != _functionMap.end() ) {
+        QString currentName = QString( tempFile.readLine() ).trimmed();
+        if ( currentName.isEmpty() ) {
+            qWarning() << "Empty name read from demangled temp file " <<
+                "(for function " << writeIter.value().name() << ").";
+            return false;
+        }
+        writeIter.value().setName( currentName );
+        ++writeIter;
+    }
+
+    // If there are still lines filled with content, something went wrong.
+    if ( !QString( tempFile.readLine() ).trimmed().isEmpty() ) {
+        qWarning() << "Demangled temp file contains more lines than expected.";
+    }
+
+    tempFile.close();
+    return true;
 }
 
 bool TraceData::activateParts(const TracePartList& l)

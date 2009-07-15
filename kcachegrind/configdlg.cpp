@@ -201,6 +201,8 @@ ConfigDlg::ConfigDlg(GlobalConfig* c, TraceData* data,
   symbolLength->setText(QString::number(c->_maxSymbolLength));
   precisionEdit->setText(QString::number(c->_percentPrecision));
   contextEdit->setText(QString::number(c->_context));
+
+  externalDemanglerEdit->setText( c->_externalDemangler );
 }
 
 ConfigDlg::~ConfigDlg()
@@ -215,19 +217,23 @@ bool ConfigDlg::configure(GlobalConfig* c, TraceData* d, QWidget* p)
 
     bool ok;
     int newValue = dlg.maxListEdit->text().toUInt(&ok);
-    if (ok && newValue < 500)
+    if (ok && newValue < 500) {
       c->_maxListCount = newValue;
-    else
+    } else {
       QMessageBox::warning(p, i18n("KCachegrind Configuration"),
                            i18n("The Maximum Number of List Items should be below 500."
                                 "The previous set value (%1) will still be used.",
                                 c->_maxListCount),
                            QMessageBox::Ok, 0);
+    }
 
     c->_maxSymbolCount = dlg.symbolCount->text().toInt();
     c->_maxSymbolLength = dlg.symbolLength->text().toInt();
     c->_percentPrecision = dlg.precisionEdit->text().toInt();
     c->_context = dlg.contextEdit->text().toInt();
+
+    c->_externalDemangler = dlg.externalDemanglerEdit->text();
+
     return true;
   }
   return false;

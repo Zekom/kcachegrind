@@ -62,6 +62,7 @@
 #include <kdebug.h>
 #include <kicon.h>
 #include <kconfiggroup.h>
+#include <KMessageBox>
 
 #if ENABLE_DUMPDOCK
 #include "dumpselection.h"
@@ -934,8 +935,20 @@ void TopLevel::loadTrace(QString file)
   // this constructor enables progress bar callbacks
   TraceData* d = new TraceData(this);
   int filesLoaded = d->load(file);
-  if (filesLoaded >0)
-      setData(d);
+
+  if ( filesLoaded == -1 ) {
+      KMessageBox::sorry(
+          this,
+          i18n( "<p>KCachegrind was configured to use an external tool to demangle the function names. "
+            "However, the external demangler could not be invoked properly.</p>"
+            "<p>You may want to check the configuration in <em>Settings->KCachegrind->External Tools</em>.</p>"),
+          i18n( "Demangling Failed" )
+      );
+      return;
+  }
+
+  if (filesLoaded>0)
+    setData( d );
 }
 
 
